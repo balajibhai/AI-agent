@@ -1,9 +1,10 @@
 import { OpenAI } from "openai";
 import { ChatCompletionMessageParam } from "openai/resources";
+require("dotenv").config();
 
 // Ensure you have set your OpenAI API key in the environment variable OPENAI_API_KEY
 const openai = new OpenAI({
-  apiKey: "dummy_key",
+  apiKey: process.env.API_KEY,
 });
 
 const GPT_MODEL = "gpt-4o-mini-2024-07-18";
