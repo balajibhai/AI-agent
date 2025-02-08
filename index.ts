@@ -10,18 +10,28 @@ const openai = new OpenAI({
 const GPT_MODEL = "gpt-4o-mini-2024-07-18";
 
 // Define the local arithmetic functions
-function findMood(mood: string, time: string) {
+function captureMood(mood: string, time: string) {
   console.log("mood: ", mood);
   console.log("time: ", time);
+  return { mood, time };
+}
+
+function capturePlace(place: string) {
+  console.log("place: ", place);
+  return { place };
 }
 
 async function main() {
   // Example user prompt. You can modify this prompt as needed.
 
-  const systemPrompt =
-    "Find the mood as well as log the time of the mood of the user based on the input sentence.";
+  const systemPrompt = `You are a friendly bot, capture the appropriate data \
+  and call appropriate functions based on the user input. \
+  Don't assume anything by yourself. If there are any unknown data for any function, \
+  don't assume anything and don't call that particular function. If there is no place mentioned from the user side then \
+  ask the user for their location and then call the appropriate function.`;
   console.log("systemPrompt: ", systemPrompt);
-  const userPrompt = "I ate a delicious food at 4:19 in the evening!!!";
+  const userPrompt =
+    "I ate a delicious food on the moon at 4:19 in the evening!!!";
   console.log("userPrompt: ", userPrompt);
   // Set up the conversation messages
   const messages: ChatCompletionMessageParam[] = [
@@ -41,9 +51,9 @@ async function main() {
     {
       type: "function",
       function: {
-        name: "finding_mood",
+        name: "capturing_mood",
         description:
-          "Finds the mood and logs time of the mood of the user based on the input sentence",
+          "Captures the mood of the user and logs time of the mood of the user based on the input sentence",
         strict: true,
         parameters: {
           type: "object",
@@ -51,11 +61,33 @@ async function main() {
           properties: {
             mood: {
               type: "string",
-              description: "Detected mood from the input sentence",
+              description:
+                "Detect the current mood of the user from the input sentence",
             },
             time: {
               type: "string",
               description: "Time of the mood",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function",
+      function: {
+        name: "capturing_place",
+        description: `Captures the place of the user based on the input sentence`,
+        strict: true,
+        parameters: {
+          type: "object",
+          required: ["place"],
+          properties: {
+            place: {
+              type: "string",
+              description:
+                "Detected place from the input sentence \
+                (even when given in latitude and longitude give the result as a place name. For eg: San Jose)",
             },
           },
           additionalProperties: false,
@@ -80,17 +112,26 @@ async function main() {
     messages.push(message);
     if (message && message.tool_calls) {
       for await (const tool_call of message.tool_calls) {
-        if (tool_call.function.name === "finding_mood") {
+        if (
+          tool_call.function.name === "capturing_mood" ||
+          tool_call.function.name === "capturing_place"
+        ) {
           const functionArgs = JSON.parse(tool_call.function.arguments);
           console.log("functionArgs: ", functionArgs);
-          const result = findMood(functionArgs.mood, functionArgs.time);
+          let result = null;
+          if (tool_call.function.name === "capturing_mood") {
+            result = captureMood(functionArgs.mood, functionArgs.time);
+            console.log(`Result: ${result.mood} at ${result.time}`);
+          } else if (tool_call.function.name === "capturing_place") {
+            result = capturePlace(functionArgs.place);
+            console.log(`Result: ${result.place}`);
+          }
           const toolMessage: ChatCompletionMessageParam = {
             role: "tool",
             tool_call_id: tool_call.id,
             content: JSON.stringify({ result }),
           };
           messages.push(toolMessage);
-          console.log(`Result: ${result}`);
           console.log("toolMessage: ", toolMessage);
         }
       }
