@@ -3,8 +3,7 @@ import { ChatCompletionMessageParam } from "openai/resources";
 
 // Ensure you have set your OpenAI API key in the environment variable OPENAI_API_KEY
 const openai = new OpenAI({
-  apiKey:
-    "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",
+  apiKey: "dummy_key",
 });
 
 const GPT_MODEL = "gpt-4o-mini-2024-07-18";
