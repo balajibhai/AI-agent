@@ -2,58 +2,46 @@ import { OpenAI } from "openai";
 import { ChatCompletionMessageParam } from "openai/resources";
 require("dotenv").config();
 
-// Ensure you have set your OpenAI API key in the environment variable OPENAI_API_KEY
 const openai = new OpenAI({
   apiKey: process.env.API_KEY,
 });
 
 const GPT_MODEL = "gpt-4o-mini-2024-07-18";
 
-// Define the local arithmetic functions
 function captureMood(mood: string, time: string) {
-  console.log("mood: ", mood);
-  console.log("time: ", time);
+  console.log("captureMood -> mood:", mood);
+  console.log("captureMood -> time:", time);
   return { mood, time };
 }
 
 function capturePlace(place: string) {
-  console.log("place: ", place);
+  console.log("capturePlace -> place:", place);
   return { place };
 }
 
 async function main() {
-  // Example user prompt. You can modify this prompt as needed.
+  const systemPrompt =
+    "You are a friendly bot. Capture the appropriate data and call the appropriate functions based on the user input.\
+If the user input lacks place information then ask the user for their location, don't take it as unknown and only after you get\
+the place then call the appropriate function. Only call the function capturing_place if the user explicitly mentions\
+a valid place name. If the place is missing or unclear, do not call the function—instead, ask the user to clarify.";
+  console.log("systemPrompt:", systemPrompt);
 
-  const systemPrompt = `You are a friendly bot, capture the appropriate data \
-  and call appropriate functions based on the user input. \
-  Don't assume anything by yourself. If there are any unknown data for any function, \
-  don't assume anything and don't call that particular function. If there is no place mentioned from the user side then \
-  ask the user for their location and then call the appropriate function.`;
-  console.log("systemPrompt: ", systemPrompt);
-  const userPrompt =
-    "I ate a delicious food on the moon at 4:19 in the evening!!!";
-  console.log("userPrompt: ", userPrompt);
-  // Set up the conversation messages
+  const userPrompt = "I ate a delicious food at 4:19 happily in the evening!";
+  console.log("userPrompt:", userPrompt);
+
   const messages: ChatCompletionMessageParam[] = [
-    {
-      role: "system",
-      content: systemPrompt,
-    },
-    {
-      role: "user",
-      content: userPrompt,
-    },
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt },
   ];
 
-  // Define the functions for the API (these definitions will tell the model
-  // what functions are available and their parameters)
   const tools: OpenAI.ChatCompletionTool[] = [
     {
       type: "function",
       function: {
         name: "capturing_mood",
         description:
-          "Captures the mood of the user and logs time of the mood of the user based on the input sentence",
+          "Captures the mood of the user and logs the time of the mood based on the input sentence.",
         strict: true,
         parameters: {
           type: "object",
@@ -61,12 +49,11 @@ async function main() {
           properties: {
             mood: {
               type: "string",
-              description:
-                "Detect the current mood of the user from the input sentence",
+              description: "The current mood detected from the input sentence.",
             },
             time: {
               type: "string",
-              description: "Time of the mood",
+              description: "The time associated with the mood.",
             },
           },
           additionalProperties: false,
@@ -77,7 +64,8 @@ async function main() {
       type: "function",
       function: {
         name: "capturing_place",
-        description: `Captures the place of the user based on the input sentence`,
+        description:
+          "Captures the place of the user based on the input sentence. Call this function only if a valid and explicit place is provided.Do not call if the place is 'unknown' or missing, don't make assumptions, instead, ask the user for clarification.",
         strict: true,
         parameters: {
           type: "object",
@@ -86,8 +74,7 @@ async function main() {
             place: {
               type: "string",
               description:
-                "Detected place from the input sentence \
-                (even when given in latitude and longitude give the result as a place name. For eg: San Jose)",
+                "The detected place from the input sentence. Must be a valid place name (e.g., 'San Jose') and should not be 'unknown' or empty.",
             },
           },
           additionalProperties: false,
@@ -97,19 +84,19 @@ async function main() {
   ];
 
   try {
-    // Make the first API call with function calling enabled.
     const completions = await openai.chat.completions.create({
-      model: GPT_MODEL, // a model that supports function calling
+      model: GPT_MODEL,
       messages,
-      tools: tools,
+      tools,
     });
 
     const message = completions.choices[0].message;
     console.log(
-      "response message with tools to call: ",
+      "Response message (first call):",
       JSON.stringify(message, null, 2)
     );
     messages.push(message);
+
     if (message && message.tool_calls) {
       for await (const tool_call of message.tool_calls) {
         if (
@@ -117,7 +104,7 @@ async function main() {
           tool_call.function.name === "capturing_place"
         ) {
           const functionArgs = JSON.parse(tool_call.function.arguments);
-          console.log("functionArgs: ", functionArgs);
+          console.log("Function arguments:", functionArgs);
           let result = null;
           if (tool_call.function.name === "capturing_mood") {
             result = captureMood(functionArgs.mood, functionArgs.time);
@@ -132,25 +119,74 @@ async function main() {
             content: JSON.stringify({ result }),
           };
           messages.push(toolMessage);
-          console.log("toolMessage: ", toolMessage);
+          console.log("Tool message:", toolMessage);
         }
       }
 
-      console.log("messages sent: ", JSON.stringify(messages, null, 2));
-
-      // Optionally, you can send the result back to the API to continue the conversation.
       const secondResponse = await openai.chat.completions.create({
         model: GPT_MODEL,
         messages,
       });
-
       console.log(
-        "\nResponse after sending function result back to the model:"
+        "\nResponse after sending function result back:",
+        JSON.stringify(secondResponse, null, 2)
       );
-      console.log(JSON.stringify(secondResponse, null, 2));
+    }
+    console.log(
+      "No tool call triggered. It appears that the place information is missing."
+    );
+
+    const userPrompt2 = "I am at Toronto.";
+    console.log("userPrompt2 (new input):", userPrompt2);
+    messages.push({
+      role: "user",
+      content: userPrompt2,
+    });
+
+    const secondResponse = await openai.chat.completions.create({
+      model: GPT_MODEL,
+      messages,
+      tools,
+    });
+    const secondMessage = secondResponse.choices[0].message;
+    console.log(
+      "Response message after providing location:",
+      JSON.stringify(secondMessage, null, 2)
+    );
+    messages.push(secondMessage);
+
+    if (
+      secondMessage &&
+      secondMessage.tool_calls &&
+      secondMessage.tool_calls.length > 0
+    ) {
+      for await (const tool_call of secondMessage.tool_calls) {
+        if (tool_call.function.name === "capturing_place") {
+          const functionArgs = JSON.parse(tool_call.function.arguments);
+          console.log("Function arguments from second call:", functionArgs);
+          const result = capturePlace(functionArgs.place);
+          console.log(`Result from second call: ${result.place}`);
+          const toolMessage: ChatCompletionMessageParam = {
+            role: "tool",
+            tool_call_id: tool_call.id,
+            content: JSON.stringify({ result }),
+          };
+          messages.push(toolMessage);
+          console.log("Tool message:", toolMessage);
+        }
+      }
+      const thirdResponse = await openai.chat.completions.create({
+        model: GPT_MODEL,
+        messages,
+      });
+      console.log(
+        "Final response after processing location function:",
+        JSON.stringify(thirdResponse, null, 2)
+      );
     } else {
-      // No function call was triggered—simply output the response.
-      console.log("Response:", message);
+      console.log(
+        "Even after the new user prompt, no tool call for capturing_place was triggered."
+      );
     }
   } catch (error) {
     console.error("Error during API call:", error);
