@@ -38,6 +38,11 @@ function capturePlace(messages: ChatCompletionMessageParam[], place: string) {
   return { place };
 }
 
+function captureEvent(event: string) {
+  console.log("captureEvent -> event:", event);
+  return { event };
+}
+
 /**
  * Processes a single tool call:
  * - Parses the function arguments.
@@ -65,6 +70,9 @@ function processToolCall(
   } else if (toolCall.function.name === "capturing_place") {
     result = capturePlace(functionMessages, functionArgs.place);
     console.log(`Result: ${result.place}`);
+  } else if (toolCall.function.name === "capturing_event") {
+    result = captureEvent(functionArgs.event);
+    console.log(`Result: ${result.event}`);
   }
   const toolMessage: ChatCompletionMessageParam = {
     role: "tool",
@@ -88,7 +96,8 @@ async function handleToolCalls(
       // Only process recognized function calls.
       if (
         toolCall.function.name === "capturing_mood" ||
-        toolCall.function.name === "capturing_place"
+        toolCall.function.name === "capturing_place" ||
+        toolCall.function.name === "capturing_event"
       ) {
         processToolCall(toolCall, messages);
       }
@@ -159,6 +168,27 @@ async function main() {
         },
       },
     },
+    {
+      type: "function",
+      function: {
+        name: "capturing_event",
+        description: "Captures the input of the user as 'news'  or 'history'",
+        strict: true,
+        parameters: {
+          type: "object",
+          required: ["event"],
+          properties: {
+            event: {
+              type: "string",
+              description:
+                "The detected event from analysing the user input whether it is a 'news' or 'history'",
+              enum: ["news", "history"],
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
   ];
 
   try {
@@ -169,6 +199,7 @@ async function main() {
 }
 
 main();
+
 async function callGPT(
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   tools: OpenAI.Chat.Completions.ChatCompletionTool[]
@@ -180,7 +211,7 @@ async function callGPT(
   });
 
   const message = completions.choices[0].message;
-  console.log("Assistant:" + message.content);
+  console.log("From GPT's first response:" + message.content);
   messages.push(message);
   const toolsPresent = await handleToolCalls(message, messages);
   if (!toolsPresent) {
