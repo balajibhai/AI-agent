@@ -288,3 +288,8 @@ export async function cook() {
     console.error("Error during API call:", error);
   }
 }
+
+export const testFun = () => {
+  console.log("testFun called");
+  return "testFun called";
+};

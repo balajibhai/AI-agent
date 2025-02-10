@@ -1,10 +1,11 @@
 // index.js
 
 import axios from "axios";
+import { testFun } from "./cook/cook";
 
-export const handler = async (event, context) => {
+export const handler = async (event: any, context: any) => {
   console.log("Received event:", JSON.stringify(event));
-
+  testFun();
   const method = event.httpMethod;
 
   if (method === "GET") {
@@ -95,7 +96,7 @@ export const handler = async (event, context) => {
  * @param {string} recipient - The WhatsApp phone number (in international format) to send the message to.
  * @param {string} text - The text message to send.
  */
-async function sendTextMessage(recipient, text) {
+async function sendTextMessage(recipient: any, text: any) {
   // Retrieve environment variables
   const phoneNumberId = process.env.PHONE_NUMBER_ID;
   const accessToken = process.env.ACCESS_TOKEN;
@@ -127,7 +128,7 @@ async function sendTextMessage(recipient, text) {
       },
     });
     console.log("Message sent successfully:", response.data);
-  } catch (error) {
+  } catch (error: any) {
     console.error(
       "Error sending message:",
       error.response ? error.response.data : error.message
