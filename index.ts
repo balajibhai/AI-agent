@@ -1,9 +1,12 @@
 require("dotenv").config();
-import { OpenAI } from "openai";
-import { ChatCompletionMessageParam } from "openai/resources";
+import {
+  ChatCompletionMessageParam,
+  ChatCompletionTool,
+} from "openai/resources";
+import { cook } from "./cook/cook";
 import { callGPT } from "./gpt/gpt";
 
-const TOOLS_TO_CALL = {
+const functions = {
   captureMood: async (captureMood: {
     messages: ChatCompletionMessageParam[];
     mood: string;
@@ -43,7 +46,7 @@ const TOOLS_TO_CALL = {
   },
 };
 
-const toolSchema: OpenAI.ChatCompletionTool[] = [
+const toolSchema: ChatCompletionTool[] = [
   {
     type: "function",
     function: {
@@ -125,11 +128,11 @@ async function main() {
   ];
 
   try {
-    await callGPT(messages, toolSchema, TOOLS_TO_CALL);
+    await callGPT(messages, toolSchema, functions);
   } catch (error) {
     console.error("Error during API call:", error);
   }
 }
 
-main();
-// cooking();
+// main();
+cook();

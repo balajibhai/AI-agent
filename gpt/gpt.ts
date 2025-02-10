@@ -10,7 +10,7 @@ const GPT_MODEL = "gpt-4o-mini-2024-07-18";
 export async function callGPT(
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   toolSchema: OpenAI.Chat.Completions.ChatCompletionTool[],
-  TOOLS_TO_CALL: {
+  functions: {
     [key: string]: (input: any) => {};
   }
 ) {
@@ -23,12 +23,12 @@ export async function callGPT(
   const message = completions.choices[0].message;
   console.log("GPT response: " + message.content);
   messages.push(message);
-  const toolsPresent = await handleToolCalls(message, messages, TOOLS_TO_CALL);
+  const toolsPresent = await handleToolCalls(message, messages, functions);
   if (!toolsPresent) {
     const userInput = await getUserInput("User:");
     messages.push({ role: "user", content: userInput });
   }
-  await callGPT(messages, toolSchema, TOOLS_TO_CALL);
+  await callGPT(messages, toolSchema, functions);
   return message;
 }
 
@@ -38,7 +38,7 @@ export async function callGPT(
 async function handleToolCalls(
   message: any,
   messages: ChatCompletionMessageParam[],
-  TOOLS_TO_CALL: {
+  functions: {
     [key: string]: (input: any) => {};
   }
 ) {
@@ -52,7 +52,7 @@ async function handleToolCalls(
       );
       let result: any = null;
       const functionMessages: ChatCompletionMessageParam[] = [];
-      result = TOOLS_TO_CALL[toolCall.function.name]({
+      result = functions[toolCall.function.name]({
         functionMessages,
         ...functionArgs,
       });
