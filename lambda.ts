@@ -6,7 +6,7 @@ import { testFun } from "./cook/cook";
 export const handler = async (event: any, context: any) => {
   console.log("Received event:", JSON.stringify(event));
   testFun();
-  const method = event.httpMethod;
+  const method = event.requestContext.http.method;
 
   if (method === "GET") {
     // Handle WhatsApp's verification challenge
