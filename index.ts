@@ -3,7 +3,7 @@ import {
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from "openai/resources";
-import { cook } from "./cook/cook";
+// import { cook } from "./cook/cook";
 import { callGPT } from "./gpt/gpt";
 
 const functions = {
@@ -116,7 +116,7 @@ const toolSchema: ChatCompletionTool[] = [
 async function main() {
   const systemPrompt =
     "You are a friendly bot. Your task is to capture data and call the appropriate functions.\
-    Do not make assumptions while calling tools.";
+    Do not make assumptions while calling tools. Return the captured data to the user.";
   console.log("systemPrompt:", systemPrompt);
 
   const userPrompt = "I ate a delicious food at 4:19 happily in the evening!";
@@ -134,5 +134,5 @@ async function main() {
   }
 }
 
-// main();
-cook();
+main();
+// cook();
