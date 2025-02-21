@@ -62,10 +62,11 @@ class FakeDatabase:
     def get_user(self, key, value):
         if key in {"email", "phone", "username"}:
             for customer in self.customers:
-                print(customer)
                 if customer[key] == value:
                     return customer
-            return f"Couldn't find a user with {key} of {value}"
+            # Raise an exception if the user is not found
+            raise Exception(
+                {"error": f"Couldn't find a user with {key} of {value}", "message": "call create_user tool to create the user first"})
         else:
             raise ValueError(f"Invalid key: {key}")
 
@@ -90,6 +91,24 @@ class FakeDatabase:
 
     def get_customer_orders(self, customer_id):
         return [order for order in self.orders if order["customer_id"] == customer_id]
+
+    def create_user(self, username, email, phonenumber):
+        if not username:
+            raise Exception("Username is required")
+        if not email:
+            raise Exception("Email is required")
+        if not phonenumber:
+            raise Exception("Phone number is required")
+        return "User created successfully"
+
+    def get_user_info(self, key, value):
+        print(key)
+        try:
+            user = self.get_user(key, value)
+        except Exception as err:
+            return {"error": err.args[0]["message"]}
+        get_customer_orders = self.get_customer_orders(user["id"])
+        return {"user": user, "orders": get_customer_orders}
 
     def cancel_order(self, order_id):
         order = self.get_order_by_id(order_id)
@@ -186,6 +205,47 @@ tools = [
             },
             "required": ["key", "value", "replace_with"]
     },
+    },
+    {
+        "name": "get_user_info",
+        "description": "Retrieves information about a user, including their orders.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "enum": ["email", "phone", "username"],
+                    "description": "The attribute to search for a user by (email, phone, or username)."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "The value to match for the specified attribute."
+                }
+            },
+            "required": ["key", "value"]
+        }
+    },
+    {
+        "name": "create_user",
+        "description": "Creates a new user account.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "username": {
+                    "type": "string",
+                    "description": "The username for the new user."
+                },
+                "email": {
+                    "type": "string",
+                    "description": "The email address for the new user."
+                },
+                "phonenumber": {
+                    "type": "string",
+                    "description": "The phone number for the new user."
+                }
+            },
+            "required": ["username", "email", "phonenumber"]
+        }
     }
 ]
 
@@ -203,6 +263,10 @@ def process_tool_call(tool_name, tool_input):
         return db.cancel_order(tool_input["order_id"])
     elif tool_name == "update_email_or_phonenumber":
         return db.update_email_or_phonenumber(tool_input["key"], tool_input["value"], tool_input["replace_with"])
+    elif tool_name == "get_user_info":
+        return db.get_user_info(tool_input["key"], tool_input["value"])
+    elif tool_name == "create_user":
+        return db.create_user(tool_input["username"], tool_input["email"], tool_input["phonenumber"])
 
 
 def simple_chat():
@@ -244,22 +308,35 @@ def simple_chat():
 
             # Actually run the underlying tool functionality on our db
             tool_result = process_tool_call(tool_name, tool_input)
-
-            # Add our tool_result message:
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": tool_use.id,
-                            "content": str(tool_result),
-                        }
-                    ],
-                },
-            )
+            if 'error' in tool_result:
+                developer_message = tool_result['error']
+                messages.append({
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": tool_use.id,
+                                "content": str(tool_result),
+                            }
+                        ],
+                    })
+                messages.append({"role": "user", "content": developer_message})
+            else:
+                # Add our tool_result message:
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": tool_use.id,
+                                "content": str(tool_result),
+                            }
+                        ],
+                    },
+                )
         else:
-            # If Claude does NOT want to use a tool, just print out the text reponse
+            # If Claude does NOT want to use a tool, just print out the text response
             print("\nTechNova Support: " + f"{response.content[0].text}")
 
 # Start the chat!!
